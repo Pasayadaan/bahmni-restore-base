@@ -1,0 +1,49 @@
+- hosts: bahmni-emr
+  sudo: yes
+  roles:
+    - { role: httpd-maintenance, maintenance_status: start }
+
+- hosts: bahmni-emr
+  tasks:
+   - name: Stop openmrs
+     systemd: name=openmrs state=stopped
+     when: db == 'openmrs' and (passive is not defined or passive != 'yes')
+     become: yes
+  ignore_errors: true
+
+- hosts: bahmni-reports
+  tasks:
+   - name: Stop bahmni-reports
+     systemd: name=bahmni-reports state=stopped
+     when: db == 'bahmni_reports' and (passive is not defined or passive != 'yes')
+     become: yes
+
+- hosts: bahmni-emr-db
+  become: yes
+  roles:
+    - { role: mysql-db-restore-incr,  when: "db == 'openmrs'" }
+
+- hosts: bahmni-reports-db
+  become: yes
+  roles:
+    - { role: mysql-db-restore-incr,  when: "db == 'bahmni_reports'" }
+
+- hosts: bahmni-emr
+  tasks:
+   - name: Start openmrs
+     systemd: name=openmrs state=started
+     when: db == 'openmrs' and (passive is not defined or passive != 'yes')
+     become: yes
+  ignore_errors: true
+
+- hosts: bahmni-reports
+  tasks:
+   - name: Start bahmni-reports
+     systemd: name=bahmni-reports state=started
+     when: db == 'bahmni_reports' and (passive is not defined or passive != 'yes')
+     become: yes
+
+- hosts: bahmni-emr
+  sudo: yes
+  roles:
+    - { role: httpd-maintenance, maintenance_status: end }
