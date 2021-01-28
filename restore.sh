@@ -2,32 +2,52 @@
 #Script to restore mysql backup and write output to status file
 #
 
+#TZ is set via Docker run by copying host timezone file.Set below TZ to over ride.
+#export TZ=Asia/Kolkata
+export TZ=`cat /etc/timezone`
 BASEDIR=/data
 BACKUPDIR=${BASEDIR}/backup
-Outfile=${BACKUPDIR}/Restore_status.txt
-Restorelog=${BACKUPDIR}/Restore.log
+Outfile=${BASEDIR}/Restore_status.txt
+Restorelog=${BASEDIR}/Restore.log
+thisWeek=$((($(date +%-d)-1)/7+1))
+ThisWeekBackupFile=openmrs${thisWeek}.tar.gz
+ThisWeekBackupInfoFile=openmrs_backup_info${thisWeek}.txt
 
 cd $BACKUPDIR
 
-for tarfile in `ls */*.tgz`
-    do
-      backupfile=`tar tf $tarfile|head -1|cut -f1 -d"/"`
-      tar xf $tarfile -C /data/openmrs/
-      echo "Rstoring $tarfile $backupfile" >>$Restorelog
+for Client in `ls -l|grep ^d|awk '{print $NF}'`
+   do
+       cd $Client
+	if [ ! -f  $ThisWeekBackupFile ] ; then
+            echo "Restore_Failed,`date +%D,%T`,$Client,$backuprootFolder,$ThisWeekBackupFile,$ThisWeekBackupInfoFile,BackupTARfileNotFound $Client/$ThisWeekBackupFile" >>$Outfile
+	    cd ..
+	    continue
+        fi	 
+       #Extractbckup to /data/openmrs
+       tar xf $ThisWeekBackupFile -C /
+       backuprootFolder=`ls /data/openmrs/`
+	if [ ! -f  $ThisWeekBackupInfoFile ] ; then
+            echo "Restore_Failed,`date +%D,%T`,$Client,$backuprootFolder,$ThisWeekBackupFile,$ThisWeekBackupInfoFile,BackupINFOfileNotFound $Client/$ThisWeekBackupInfoFile" >>$Outfile
+	    cd ..
+	    continue
+        fi	 
+       cp $ThisWeekBackupInfoFile  /data/openmrs/backup_info.txt
 
-      #restore  task
-      bahmni -i local restore --restore_type=db --options=openmrs --strategy=pitr --restore_point=$backupfile 2>&1 >>$Restorelog
+       # Restore  task
+       echo "Start Rstoring $Client $ThisWeekBackupFile $backuprootFolder `date`" >>$Restorelog
+       bahmni -i local restore --restore_type=db --options=openmrs --strategy=pitr --restore_point=$backuprootFolder 2>&1 >>$Restorelog
 
-      #Check Restore status
-      mysql -B -u root -pP@ssw0rd openmrs -e "select * from location;"
-      if [ $? = 0 ] ;then 
-          echo "$tarfile,$backupfile,Restore_Success,`date +%D,%T`" >>$Outfile 
+       #Check Restore status
+       mysql -B -u root -pP@ssw0rd openmrs -e "select * from location;"
+       if [ $? = 0 ] ;then 
+          echo "Restore_Success,`date +%D,%T`,$Client,$backuprootFolder,$ThisWeekBackupFile,$ThisWeekBackupInfoFile" >>$Outfile 
 	  rm -f $Restorelog
         else
-           echo "$tarfile,$backupfile,Restore_Failed,`date`" >>$Outfile
+           echo "Restore_Failed,`date +%D,%T`,$Client,$backuprootFolder,$ThisWeekBackupFile,$ThisWeekBackupInfoFile" >>$Outfile
 	   echo "Restore Filed check restore log @ $Restorelog"
-      fi
+       fi
+       cd ..
 
-      [ -d /data/openmrs/$backupfile ] && rm -rf /data/openmrs/$backupfile
-      [ -f /data/openmrs/backup_info.txt ] && rm -rf /data/openmrs/backup_info.txt
+      [ -d /data/openmrs/${backuprootFolder} ] && rm -rf /data/openmrs/$backuprootFolder
+      [ -f /data/openmrs/backup_info.txt ] && rm -f /data/openmrs/backup_info.txt
 done
