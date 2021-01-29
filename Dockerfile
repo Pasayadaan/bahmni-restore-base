@@ -12,7 +12,7 @@ RUN (cd /lib/systemd/system/sysinit.target.wants && for i in *; do [ $i == syste
      rm -vf /lib/systemd/system/anaconda.target.wants/*
 VOLUME [ "/sys/fs/cgroup" ]
 
-RUN INSTALL_PKGS="hwdata.noarch initscripts.x86_64 iproute.x86_64 iptables.x86_64 iputils.x86_64 libdrm.x86_64 libpciaccess.x86_64 m4.x86_64 policycoreutils.x86_64 selinux-policy.noarch selinux-policy-targeted.noarch sudo sysvinit-tools.x86_64 udev.x86_64 util-linux-ng.x86_64 git epel-release python-pip" && \
+RUN INSTALL_PKGS="hwdata.noarch initscripts.x86_64 iproute.x86_64 iptables.x86_64 iputils.x86_64 libdrm.x86_64 libpciaccess.x86_64 m4.x86_64 policycoreutils.x86_64 selinux-policy.noarch selinux-policy-targeted.noarch sudo sysvinit-tools.x86_64 udev.x86_64 util-linux-ng.x86_64 git epel-release python-pip wget" && \
      yum -y install  --setopt=tsflags=nodocs  $INSTALL_PKGS 
 RUN yum -y install  --setopt=tsflags=nodocs python-pip && \
 	yum -y clean all --enablerepo='*' && \
